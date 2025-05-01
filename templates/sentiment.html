@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="text-center">Feedback Sentiment Analysis</h2>
+        <button id="toggleDarkMode" class="btn btn-dark">Toggle Dark Mode</button>
+    </div>
+
+    <form method="post" id="feedbackForm">
+        <textarea name="feedback" id="feedback" rows="4" class="form-control mb-3" placeholder="Enter your feedback..."></textarea>
+        <button type="submit" class="btn btn-primary w-100">Submit Feedback</button>
+    </form>
+
+    <div id="loadingSpinner" class="text-center mt-5" style="display: none;">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2">Fetching insights...</p>
+    </div>
+
+    <div id="analytics" style="display: none; margin-top: 50px;">
+        <hr>
+        <h4 class="text-center">Sentiment Distribution</h4>
+        <canvas id="sentimentChart" style="max-width: 700px; margin: auto; display: block;"></canvas>
+
+        <hr class="mt-5">
+        <h4 class="text-center mt-5">Word Cloud</h4>
+        <img id="wordcloudImage" src="" alt="Word Cloud" class="img-fluid rounded shadow" style="max-width: 600px; display: block; margin: 20px auto;">
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let darkMode = false;
+
+    document.getElementById('feedbackForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const formData = new FormData(this);
+
+        fetch('/sentiment_analysis', {
+            method: 'POST',
+            body: formData
+        }).then(response => {
+            if (response.ok) {
+                loadAnalytics(); // Refresh
+            }
+        });
+    });
+
+    function loadAnalytics() {
+        document.getElementById('analytics').style.display = 'none';
+        document.getElementById('loadingSpinner').style.display = 'block';
+
+        fetch('/get_sentiment_data')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('loadingSpinner').style.display = 'none';
+                document.getElementById('analytics').style.display = 'block';
+                document.getElementById('analytics').classList.add('fade-in');
+
+                const ctx = document.getElementById('sentimentChart').getContext('2d');
+
+                if (window.sentimentChartInstance) {
+                    window.sentimentChartInstance.destroy();
+                }
+
+                window.sentimentChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Positive', 'Neutral', 'Negative'],
+                        datasets: [{
+                            label: 'Feedback Count',
+                            data: [data.Positive, data.Neutral, data.Negative],
+                            backgroundColor: darkMode ? ['#4caf50', '#ffc107', '#f44336'] : ['#2196f3', '#ff9800', '#f44336']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+
+                document.getElementById('wordcloudImage').src = '/wordcloud?' + new Date().getTime();
+            });
+    }
+
+    // Dark Mode Toggle
+    document.getElementById('toggleDarkMode').addEventListener('click', () => {
+        document.body.classList.toggle('dark-mode');
+        darkMode = !darkMode;
+        if (window.sentimentChartInstance) {
+            loadAnalytics(); // Reload chart with updated colors
+        }
+    });
+
+    // Load initially
+    loadAnalytics();
+</script>
+
+<style>
+    /* Fade-in Animation */
+    .fade-in {
+        animation: fadeIn 1s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+        0% { opacity: 0; transform: translateY(20px); }
+        100% { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Dark Mode */
+    .dark-mode {
+        background-color: #121212;
+        color: #f5f5f5;
+    }
+
+    .dark-mode .form-control,
+    .dark-mode .btn-primary,
+    .dark-mode .btn-dark {
+        background-color: #1f1f1f;
+        color: #ffffff;
+        border-color: #444;
+    }
+
+    .dark-mode canvas {
+        background-color: #1f1f1f;
+    }
+</style>
+
+{% endblock %}

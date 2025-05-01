@@ -1,0 +1,8 @@
+Flask
+Werkzeug
+plotly
+pandas
+textblob
+wordcloud
+matplotlib
+tensorflow

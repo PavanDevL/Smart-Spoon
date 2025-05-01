@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="container mt-5 fade-in">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Smart Spoon - Food Classification</h2>
+        <button id="toggleDarkMode" class="btn btn-dark">Toggle Dark Mode</button>
+    </div>
+
+    <div class="card p-4 shadow fade-in">
+
+        <div class="text-center mb-4">
+            <h4>Upload Food Image</h4>
+            <p class="text-muted">Drag & drop or click to upload (.JPG/.PNG/.JPEG)</p>
+        </div>
+
+        <!-- Dropzone Area -->
+        <form action="/upload" class="dropzone" id="fileDropzone"></form>
+
+        <!-- Progress Bar -->
+        <div class="progress mt-4" style="height: 25px; display:none;" id="progressContainer">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                role="progressbar" style="width: 0%;" id="uploadProgress">Uploading...</div>
+        </div>
+
+        <!-- Predict Button -->
+        <div class="text-center mt-4">
+            <button id="predictBtn" class="btn btn-success" style="display:none;">Predict</button>
+        </div>
+
+        <!-- Loading Spinner -->
+        <div id="loadingSpinner" class="text-center mt-4" style="display:none;">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Predicting...</span>
+            </div>
+            <p class="mt-2">Predicting your food type...</p>
+        </div>
+
+        <!-- Predictions Table -->
+        <div class="mt-5" id="predictionTable" style="display:none;">
+            <h4>Predictions</h4>
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>Filename</th>
+                        <th>Predicted class</th>
+                    </tr>
+                </thead>
+                <tbody id="predictionResults"></tbody>
+            </table>
+
+            <div class="text-center mt-3">
+                <a id="downloadBtn" href="/download_results" class="btn btn-primary" style="display:none;">Download Results</a>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+// Configure Dropzone
+Dropzone.options.fileDropzone = {
+    maxFilesize: 5, // MB
+    acceptedFiles: ".png,.jpeg,.jpg",
+    init: function() {
+        this.on("addedfile", function(file) {
+            document.getElementById('progressContainer').style.display = 'block';
+        });
+
+        this.on("uploadprogress", function(file, progress) {
+            document.getElementById('uploadProgress').style.width = progress + '%';
+        });
+
+        this.on("success", function(file, response) {
+            document.getElementById('uploadProgress').innerText = "Upload Complete!";
+            document.getElementById('predictBtn').style.display = 'inline-block';
+            Swal.fire({
+                icon: 'success',
+                title: 'Upload Successful!',
+                text: 'Now click Predict to analyze the food image.'
+            });
+        });
+
+        this.on("error", function(file, errorMessage) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Upload Failed',
+                text: errorMessage
+            });
+        });
+    }
+};
+
+// Predict Button Click
+document.getElementById('predictBtn').addEventListener('click', function() {
+    document.getElementById('loadingSpinner').style.display = 'block';
+    document.getElementById('predictBtn').disabled = true;
+
+    fetch('/predict', { method: 'POST' })
+    .then(res => res.json())
+    .then(data => {
+        document.getElementById('loadingSpinner').style.display = 'none';
+        document.getElementById('predictBtn').disabled = false;
+
+        if (data.status === 'success') {
+            let results = data.predictions;
+            let tbody = document.getElementById('predictionResults');
+            tbody.innerHTML = '';
+            results.forEach(item => {
+                let row = `<tr>
+                    <td>${item.filename}</td>
+                    <td>${item.predicted_class}</td>
+                </tr>`;
+                tbody.innerHTML += row;
+            });
+            document.getElementById('predictionTable').style.display = 'block';
+            document.getElementById('downloadBtn').style.display = 'inline-block';
+            Swal.fire({
+                icon: 'success',
+                title: 'Prediction Complete!',
+                text: 'Results are now displayed below.'
+            });
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Prediction Failed',
+                text: data.message || 'Something went wrong.'
+            });
+        }
+    }).catch(err => {
+        document.getElementById('loadingSpinner').style.display = 'none';
+        document.getElementById('predictBtn').disabled = false;
+        Swal.fire({
+            icon: 'error',
+            title: 'Server Error',
+            text: err.message
+        });
+    });
+});
+
+// Dark Mode Toggle
+document.getElementById('toggleDarkMode').addEventListener('click', () => {
+    document.body.classList.toggle('dark-mode');
+});
+
+// Fade-in animation
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.fade-in').forEach(el => {
+        el.style.opacity = 0;
+        el.style.transform = 'translateY(20px)';
+        setTimeout(() => {
+            el.style.transition = 'all 1s ease';
+            el.style.opacity = 1;
+            el.style.transform = 'translateY(0)';
+        }, 100);
+    });
+});
+</script>
+
+<style>
+    /* Dark Mode */
+    .dark-mode {
+        background-color: #121212;
+        color: #f5f5f5;
+    }
+
+    .dark-mode .form-control,
+    .dark-mode .btn-primary,
+    .dark-mode .btn-success,
+    .dark-mode .btn-dark,
+    .dark-mode .dropzone {
+        background-color: #1f1f1f;
+        color: #ffffff;
+        border-color: #333;
+    }
+
+    .dark-mode .card {
+        background-color: #1f1f1f;
+    }
+
+    .dropzone {
+        border: 2px dashed #6c757d;
+        border-radius: 10px;
+        background: #f9f9f9;
+        padding: 30px;
+        text-align: center;
+        transition: 0.3s;
+    }
+
+    .dropzone:hover {
+        background: #e9ecef;
+    }
+
+    .fade-in {
+        animation: fadeIn 1s ease forwards;
+    }
+
+    @keyframes fadeIn {
+        0% {opacity: 0; transform: translateY(20px);}
+        100% {opacity: 1; transform: translateY(0);}
+    }
+</style>
+{% endblock %}
